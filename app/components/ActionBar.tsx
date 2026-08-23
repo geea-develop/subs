@@ -3,6 +3,7 @@ import { BarChart2, Download, SlidersHorizontal, Sparkles, Upload } from 'lucide
 import type React from 'react'
 import { Button } from '~/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/components/ui/tooltip'
+import { EmailImportDialog } from '~/components/EmailImportDialog'
 
 interface ActionBarProps {
   subscriptionCount: number
@@ -71,6 +72,7 @@ export function ActionBar({
             Insights
           </Link>
         </Button>
+        <EmailImportDialog />
         <Button asChild size="sm" variant="outline" className="rounded-none rounded-tr-md rounded-br-md">
           <Link to="/manage">
             <SlidersHorizontal className="mr-1 h-3 w-3" />

@@ -21,6 +21,8 @@ export const SUBSCRIPTION_CATEGORIES = [
 
 export type SubscriptionCategory = (typeof SUBSCRIPTION_CATEGORIES)[number]
 
+export type SubscriptionSource = 'manual' | 'email'
+
 export interface Subscription {
   id: string
   name: string
@@ -32,6 +34,9 @@ export interface Subscription {
   nextPaymentDate?: string // ISO date string
   showNextPayment?: boolean
   category?: SubscriptionCategory
+  source?: SubscriptionSource
+  sourceEmailId?: string // Gmail message ID if imported from email
+  importedAt?: string // ISO date string
 }
 
 export interface SubscriptionTemplate {

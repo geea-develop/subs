@@ -52,4 +52,6 @@ yarn-error.log*
 # Db file
 db.sqlite
 
-data/config.jsonpackage-lock.json
+data/config.json
+data/gmail-tokens.json
+package-lock.json
