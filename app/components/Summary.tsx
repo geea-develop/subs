@@ -1,14 +1,14 @@
 import { useLoaderData } from '@remix-run/react'
-import { AlertTriangle, Settings } from 'lucide-react'
+import { Settings } from 'lucide-react'
 import type React from 'react'
 import { useState } from 'react'
+import { BudgetProgress } from '~/components/BudgetProgress'
 import { NumberTicker } from '~/components/number-ticker'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent } from '~/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
-import { Progress } from '~/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { convertCurrency } from '~/lib/utils'
 import type { loader } from '~/routes/_index'
@@ -35,11 +35,6 @@ const Summary: React.FC<SummaryProps> = ({ totals }) => {
   }
 
   const convertedTotal = calculateTotal()
-
-  const budgetPercent =
-    monthlyBudget && monthlyBudget > 0 ? Math.min((convertedTotal / monthlyBudget) * 100, 100) : null
-  const isOverBudget = budgetPercent !== null && monthlyBudget !== null && convertedTotal > monthlyBudget
-  const isWarning = budgetPercent !== null && budgetPercent >= 80
 
   const handleBudgetSave = () => {
     const parsed = Number.parseFloat(budgetInput)
@@ -107,28 +102,8 @@ const Summary: React.FC<SummaryProps> = ({ totals }) => {
             </div>
 
             {/* Budget progress bar */}
-            {monthlyBudget !== null && budgetPercent !== null && (
-              <div className="mt-4">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm text-muted-foreground flex items-center gap-1">
-                    Monthly budget
-                    {(isWarning || isOverBudget) && (
-                      <AlertTriangle className={`h-3 w-3 ${isOverBudget ? 'text-destructive' : 'text-yellow-500'}`} />
-                    )}
-                  </span>
-                  <span
-                    className={`text-sm font-semibold ${isOverBudget ? 'text-destructive' : isWarning ? 'text-yellow-600' : 'text-foreground'}`}
-                  >
-                    {convertedTotal.toFixed(2)} / {monthlyBudget.toFixed(2)} {selectedCurrency}
-                    {isOverBudget && ' — Over budget!'}
-                    {!isOverBudget && isWarning && ` — ${budgetPercent.toFixed(0)}% used`}
-                  </span>
-                </div>
-                <Progress
-                  value={budgetPercent}
-                  className={`h-2 ${isOverBudget ? '[&>div]:bg-destructive' : isWarning ? '[&>div]:bg-yellow-500' : ''}`}
-                />
-              </div>
+            {monthlyBudget !== null && monthlyBudget > 0 && (
+              <BudgetProgress monthlySpend={convertedTotal} budget={monthlyBudget} currency={selectedCurrency} />
             )}
           </div>
         </CardContent>

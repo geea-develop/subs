@@ -4,6 +4,7 @@ import { Link, useLoaderData } from '@remix-run/react'
 import { ArrowLeft, TrendingDown, TrendingUp } from 'lucide-react'
 import { useEffect } from 'react'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+import { BudgetProgress } from '~/components/BudgetProgress'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
@@ -100,10 +101,6 @@ export default function Insights() {
     )
   }
 
-  const budgetPercent = monthlyBudget && monthlyBudget > 0 ? Math.min((totalMonthly / monthlyBudget) * 100, 100) : null
-  const isOverBudget = budgetPercent !== null && monthlyBudget !== null && totalMonthly > monthlyBudget
-  const isWarning = budgetPercent !== null && budgetPercent >= 80
-
   // Top subscriptions ranked by monthly cost
   const topSubscriptions = [...subscriptions]
     .sort((a, b) => toMonthly(b.price, b.currency, b.billingCycle) - toMonthly(a.price, a.currency, a.billingCycle))
@@ -169,25 +166,13 @@ export default function Insights() {
         </div>
 
         {/* Budget progress */}
-        {monthlyBudget !== null && budgetPercent !== null && (
+        {monthlyBudget !== null && monthlyBudget > 0 && (
           <Card className="mb-6">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Budget</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex justify-between mb-2">
-                <span
-                  className={`text-sm font-semibold ${isOverBudget ? 'text-destructive' : isWarning ? 'text-yellow-600' : 'text-foreground'}`}
-                >
-                  {fmt(totalMonthly)} / {fmt(monthlyBudget)} {selectedCurrency}
-                  {isOverBudget && ' — Over budget!'}
-                </span>
-                <span className="text-sm text-muted-foreground">{budgetPercent.toFixed(0)}%</span>
-              </div>
-              <Progress
-                value={budgetPercent}
-                className={`h-3 ${isOverBudget ? '[&>div]:bg-destructive' : isWarning ? '[&>div]:bg-yellow-500' : ''}`}
-              />
+              <BudgetProgress monthlySpend={totalMonthly} budget={monthlyBudget} currency={selectedCurrency} />
             </CardContent>
           </Card>
         )}

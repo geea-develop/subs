@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { AlertTriangle, Calendar, Edit, Trash2 } from 'lucide-react'
+import { AlertTriangle, Calendar, Edit, FileText, Trash2 } from 'lucide-react'
 import { memo } from 'react'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
@@ -47,6 +47,25 @@ const SubscriptionCard = memo(function SubscriptionCard({
   // Check if next payment date is in the past (but not rolled forward)
   const isDateInPast =
     showNextPayment && nextPaymentDate ? new Date(nextPaymentDate) < new Date(new Date().setHours(0, 0, 0, 0)) : false
+
+  // Lifecycle indicators
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const trialEndDate = subscription.trialEndDate ? new Date(subscription.trialEndDate) : null
+  const isOnTrial = trialEndDate ? trialEndDate >= today : false
+  const daysUntilTrialEnd = trialEndDate
+    ? Math.ceil((trialEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    : null
+  const isTrialEndingSoon = daysUntilTrialEnd !== null && daysUntilTrialEnd >= 0 && daysUntilTrialEnd <= 7
+
+  const contractEndDate = subscription.contractEndDate ? new Date(subscription.contractEndDate) : null
+  const daysUntilContractEnd = contractEndDate
+    ? Math.ceil((contractEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    : null
+  const isContractEndingSoon = daysUntilContractEnd !== null && daysUntilContractEnd >= 0 && daysUntilContractEnd <= 30
+
+  const hasNotes = !!subscription.notes
 
   // Sanitize the domain URL
   const sanitizedDomain = sanitizeDomain(domain)
@@ -120,6 +139,69 @@ const SubscriptionCard = memo(function SubscriptionCard({
               </TooltipProvider>
             )}
           </div>
+        )}
+
+        {/* Trial Badge - Top Left (below billing cycle if present) */}
+        {isOnTrial && (
+          <div className={`absolute ${billingCycle ? 'top-8' : 'top-2'} left-2 z-10`}>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant={isTrialEndingSoon ? 'destructive' : 'default'}
+                    className={`text-xs ${!isTrialEndingSoon ? 'bg-blue-500 hover:bg-blue-600' : ''}`}
+                  >
+                    {isTrialEndingSoon ? `Trial ends in ${daysUntilTrialEnd}d` : 'Trial'}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Trial ends{' '}
+                  {trialEndDate?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        )}
+
+        {/* Contract ending soon indicator */}
+        {isContractEndingSoon && (
+          <div
+            className="absolute top-2 left-2 z-10"
+            style={{ top: billingCycle && isOnTrial ? '3.5rem' : billingCycle || isOnTrial ? '2rem' : '0.5rem' }}
+          >
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="text-xs border-orange-500 text-orange-600">
+                    Contract ends in {daysUntilContractEnd}d
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Contract ends{' '}
+                  {contractEndDate?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        )}
+
+        {/* Notes indicator */}
+        {hasNotes && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="absolute bottom-2 right-2 z-10 cursor-help"
+                  style={category ? { right: 'auto', left: '0.5rem', bottom: '1.75rem' } : undefined}
+                >
+                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[200px]">
+                <p className="text-xs whitespace-pre-wrap">{subscription.notes}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
 
         {/* Category Badge - Bottom Right */}

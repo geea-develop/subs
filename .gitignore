@@ -16,6 +16,9 @@ package-lock.json
 /prisma/db.sqlite
 /prisma/db.sqlite-journal
 db.sqlite
+/data/subs.db
+/data/subs.db-wal
+/data/subs.db-shm
 
 # next.js
 /.next/

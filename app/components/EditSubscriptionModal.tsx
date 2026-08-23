@@ -1,18 +1,20 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useLoaderData } from '@remix-run/react'
-import { CalendarIcon } from 'lucide-react'
+import { CalendarIcon, ChevronDown } from 'lucide-react'
 import type React from 'react'
 import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import * as z from 'zod'
 import { Button } from '~/components/ui/button'
 import { Calendar } from '~/components/ui/calendar'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { Switch } from '~/components/ui/switch'
+import { Textarea } from '~/components/ui/textarea'
 import { cn } from '~/lib/utils'
 import type { loader } from '~/routes/_index'
 import { usePreferencesStore } from '~/store/preferences'
@@ -60,6 +62,11 @@ const subscriptionSchema = z.object({
   nextPaymentDate: z.string().optional(),
   showNextPayment: z.boolean().optional(),
   category: z.string().optional(),
+  trialEndDate: z.string().optional(),
+  cancellationUrl: z.string().optional(),
+  accountEmail: z.string().optional(),
+  notes: z.string().optional(),
+  contractEndDate: z.string().optional(),
 })
 
 const EditSubscriptionModal: React.FC<EditSubscriptionModalProps> = ({
@@ -92,6 +99,11 @@ const EditSubscriptionModal: React.FC<EditSubscriptionModalProps> = ({
       nextPaymentDate: undefined as string | undefined,
       showNextPayment: false,
       category: undefined as string | undefined,
+      trialEndDate: undefined as string | undefined,
+      cancellationUrl: '',
+      accountEmail: '',
+      notes: '',
+      contractEndDate: undefined as string | undefined,
     },
   })
 
@@ -109,6 +121,11 @@ const EditSubscriptionModal: React.FC<EditSubscriptionModalProps> = ({
         nextPaymentDate: undefined,
         showNextPayment: false,
         category: templateValues.category,
+        trialEndDate: undefined,
+        cancellationUrl: '',
+        accountEmail: '',
+        notes: '',
+        contractEndDate: undefined,
       })
     } else {
       reset({
@@ -121,6 +138,11 @@ const EditSubscriptionModal: React.FC<EditSubscriptionModalProps> = ({
         nextPaymentDate: undefined,
         showNextPayment: false,
         category: undefined,
+        trialEndDate: undefined,
+        cancellationUrl: '',
+        accountEmail: '',
+        notes: '',
+        contractEndDate: undefined,
       })
     }
   }, [editingSubscription, templateValues, reset])
@@ -151,8 +173,8 @@ const EditSubscriptionModal: React.FC<EditSubscriptionModalProps> = ({
     category: (watchedFields.category as Subscription['category']) ?? undefined,
   }
 
-  const onSubmit = (data: Omit<Subscription, 'id'>) => {
-    onSave(data)
+  const onSubmit = (data: Record<string, unknown>) => {
+    onSave(data as Omit<Subscription, 'id'>)
     onClose()
   }
 
@@ -366,6 +388,96 @@ const EditSubscriptionModal: React.FC<EditSubscriptionModalProps> = ({
                   )}
                 </>
               )}
+
+              {/* Lifecycle Metadata */}
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full justify-between px-0 text-muted-foreground">
+                    Lifecycle details
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-3 pt-2">
+                  <div>
+                    <Label htmlFor="trialEndDate">Trial End Date</Label>
+                    <Controller
+                      name="trialEndDate"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          id="trialEndDate"
+                          type="date"
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value || undefined)}
+                        />
+                      )}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="contractEndDate">Contract End Date</Label>
+                    <Controller
+                      name="contractEndDate"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          id="contractEndDate"
+                          type="date"
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value || undefined)}
+                        />
+                      )}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="cancellationUrl">Cancellation URL</Label>
+                    <Controller
+                      name="cancellationUrl"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          id="cancellationUrl"
+                          type="url"
+                          placeholder="https://..."
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value)}
+                        />
+                      )}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="accountEmail">Account Email</Label>
+                    <Controller
+                      name="accountEmail"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          id="accountEmail"
+                          type="email"
+                          placeholder="you@example.com"
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value)}
+                        />
+                      )}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="notes">Notes</Label>
+                    <Controller
+                      name="notes"
+                      control={control}
+                      render={({ field }) => (
+                        <Textarea
+                          id="notes"
+                          placeholder="Internal notes..."
+                          rows={3}
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value)}
+                        />
+                      )}
+                    />
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
             <div className="my-auto">
               <SubscriptionCard subscription={previewSubscription} onEdit={() => {}} onDelete={() => {}} />

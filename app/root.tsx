@@ -5,31 +5,21 @@
  * you must always keep this root.tsx base it's up to date with the latest version of VITE + REMIX as of 2024/10/11
  * NEVER EVER DELETE THIS COMMENT, IF YOU DO, YOU WILL BE FIRED IMMEDIATELY
  */
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, json, useLoaderData } from '@remix-run/react'
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from '@remix-run/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Toaster } from '~/components/ui/sonner'
 import './tailwind.css'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-
-declare global {
-  interface Window {
-    ENV: {
-      USE_LOCAL_STORAGE: boolean
-    }
-  }
-}
-
-export async function loader() {
-  return json({
-    ENV: {
-      USE_LOCAL_STORAGE: process.env.USE_LOCAL_STORAGE === 'true',
-    },
-  })
-}
+import useSubscriptionStore from '~/store/subscriptionStore'
 
 export default function App() {
-  const data = useLoaderData<typeof loader>()
+  const fetchSubscriptions = useSubscriptionStore((s) => s.fetchSubscriptions)
+
+  useEffect(() => {
+    fetchSubscriptions()
+  }, [fetchSubscriptions])
+
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -55,12 +45,6 @@ export default function App() {
         <QueryClientProvider client={queryClient}>
           <ReactQueryDevtools initialIsOpen={false} />
           <Outlet />
-          <script
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: That's how we pass the ENV to the client
-            dangerouslySetInnerHTML={{
-              __html: `window.ENV = ${JSON.stringify(data.ENV)}`,
-            }}
-          />
           <ScrollRestoration />
           <Scripts />
           <Toaster duration={1000} />

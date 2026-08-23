@@ -90,6 +90,39 @@ function validateRow(raw: unknown, index: number): RowValidationResult {
     errors.push(`category must be one of: ${SUBSCRIPTION_CATEGORIES.join(', ')}`)
   }
 
+  // trialEndDate – optional ISO date string
+  if (row.trialEndDate !== undefined) {
+    if (typeof row.trialEndDate !== 'string') {
+      errors.push('trialEndDate must be a string')
+    } else if (Number.isNaN(Date.parse(row.trialEndDate))) {
+      errors.push('trialEndDate must be a valid ISO date string')
+    }
+  }
+
+  // contractEndDate – optional ISO date string
+  if (row.contractEndDate !== undefined) {
+    if (typeof row.contractEndDate !== 'string') {
+      errors.push('contractEndDate must be a string')
+    } else if (Number.isNaN(Date.parse(row.contractEndDate))) {
+      errors.push('contractEndDate must be a valid ISO date string')
+    }
+  }
+
+  // cancellationUrl – optional string
+  if (row.cancellationUrl !== undefined && typeof row.cancellationUrl !== 'string') {
+    errors.push('cancellationUrl must be a string')
+  }
+
+  // accountEmail – optional string
+  if (row.accountEmail !== undefined && typeof row.accountEmail !== 'string') {
+    errors.push('accountEmail must be a string')
+  }
+
+  // notes – optional string
+  if (row.notes !== undefined && typeof row.notes !== 'string') {
+    errors.push('notes must be a string')
+  }
+
   if (errors.length > 0) {
     return { index, raw, valid: false, errors }
   }
@@ -105,6 +138,11 @@ function validateRow(raw: unknown, index: number): RowValidationResult {
     ...(row.nextPaymentDate !== undefined ? { nextPaymentDate: row.nextPaymentDate as string } : {}),
     ...(row.showNextPayment !== undefined ? { showNextPayment: row.showNextPayment as boolean } : {}),
     ...(row.category !== undefined ? { category: row.category as Subscription['category'] } : {}),
+    ...(row.trialEndDate !== undefined ? { trialEndDate: row.trialEndDate as string } : {}),
+    ...(row.contractEndDate !== undefined ? { contractEndDate: row.contractEndDate as string } : {}),
+    ...(row.cancellationUrl !== undefined ? { cancellationUrl: row.cancellationUrl as string } : {}),
+    ...(row.accountEmail !== undefined ? { accountEmail: row.accountEmail as string } : {}),
+    ...(row.notes !== undefined ? { notes: row.notes as string } : {}),
   }
 
   return { index, raw, valid: true, errors: [], subscription }

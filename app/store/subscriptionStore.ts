@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { createJSONStorage, persist } from 'zustand/middleware'
 import { validateImportData } from '~/utils/importValidation'
 
 export type BillingCycle = 'monthly' | 'yearly' | 'weekly' | 'daily'
@@ -37,6 +36,12 @@ export interface Subscription {
   source?: SubscriptionSource
   sourceEmailId?: string // Gmail message ID if imported from email
   importedAt?: string // ISO date string
+  // Lifecycle metadata
+  trialEndDate?: string // ISO date string — when the free trial ends
+  cancellationUrl?: string // Direct link to cancel the subscription
+  accountEmail?: string // Email used for the subscription account
+  notes?: string // Freeform internal notes
+  contractEndDate?: string // ISO date string — when annual/multi-year contract ends
 }
 
 export interface SubscriptionTemplate {
@@ -56,6 +61,8 @@ export interface SubscriptionTemplate {
 interface SubscriptionStore {
   subscriptions: Subscription[]
   lastImportedAt?: string
+  initialized: boolean
+  fetchSubscriptions: () => Promise<void>
   addSubscription: (subscription: Omit<Subscription, 'id'>) => void
   editSubscription: (id: string, updatedSubscription: Partial<Omit<Subscription, 'id'>>) => void
   deleteSubscription: (id: string) => void
@@ -79,111 +86,162 @@ export const defaultSubscriptions: Subscription[] = [
   { id: '10', name: 'Microsoft 365', price: 6.99, currency: 'EUR', domain: 'https://microsoft.com' },
 ]
 
-const createCustomStorage = () => {
-  const USE_LOCAL_STORAGE = typeof window !== 'undefined' && window.ENV.USE_LOCAL_STORAGE === true
+const useSubscriptionStore = create<SubscriptionStore>()((set, get) => ({
+  subscriptions: [],
+  lastImportedAt: undefined,
+  initialized: false,
 
-  if (USE_LOCAL_STORAGE) {
-    return localStorage
-  }
-
-  if (typeof window === 'undefined') {
-    return {
-      getItem: () => null,
-      setItem: () => null,
-      removeItem: () => null,
+  fetchSubscriptions: async () => {
+    try {
+      const response = await fetch('/api/subscriptions')
+      if (!response.ok) throw new Error('Failed to fetch subscriptions')
+      const data = await response.json()
+      set({ subscriptions: data.subscriptions, initialized: true })
+    } catch (error) {
+      console.error('Error fetching subscriptions:', error)
+      set({ subscriptions: defaultSubscriptions, initialized: true })
     }
-  }
+  },
 
-  return {
-    getItem: async (key: string): Promise<string | null> => {
-      try {
-        const response = await fetch(`/api/storage/${key}`)
-        if (!response.ok) return null
-        const data = await response.json()
-        return JSON.stringify(data.value)
-      } catch (error) {
-        console.error('Error fetching data:', error)
-        return null
-      }
-    },
-    setItem: async (key: string, value: string): Promise<void> => {
-      try {
-        await fetch(`/api/storage/${key}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ value: JSON.parse(value) }),
-        })
-      } catch (error) {
-        console.error('Error setting data:', error)
-      }
-    },
-    removeItem: async (key: string): Promise<void> => {
-      try {
-        await fetch(`/api/storage/${key}`, { method: 'DELETE' })
-      } catch (error) {
-        console.error('Error removing data:', error)
-      }
-    },
-  }
-}
+  addSubscription: async (subscription) => {
+    // Optimistically add with a temporary id
+    const tempId = crypto.randomUUID()
+    const optimistic = { ...subscription, id: tempId }
+    set((state) => ({ subscriptions: [...state.subscriptions, optimistic] }))
 
-const customStorage = createCustomStorage()
+    try {
+      const response = await fetch('/api/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(subscription),
+      })
+      if (!response.ok) throw new Error('Failed to create subscription')
+      const data = await response.json()
+      // Replace temp with server-assigned id
+      set((state) => ({
+        subscriptions: state.subscriptions.map((s) => (s.id === tempId ? data.subscription : s)),
+      }))
+    } catch (error) {
+      console.error('Error creating subscription:', error)
+      // Rollback
+      set((state) => ({ subscriptions: state.subscriptions.filter((s) => s.id !== tempId) }))
+    }
+  },
 
-const useSubscriptionStore = create<SubscriptionStore>()(
-  persist(
-    (set, get) => ({
-      subscriptions: defaultSubscriptions,
-      lastImportedAt: undefined,
-      addSubscription: (subscription) =>
+  editSubscription: async (id, updatedSubscription) => {
+    const prev = get().subscriptions.find((s) => s.id === id)
+    // Optimistic update
+    set((state) => ({
+      subscriptions: state.subscriptions.map((sub) => (sub.id === id ? { ...sub, ...updatedSubscription } : sub)),
+    }))
+
+    try {
+      const response = await fetch(`/api/subscriptions/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedSubscription),
+      })
+      if (!response.ok) throw new Error('Failed to update subscription')
+    } catch (error) {
+      console.error('Error updating subscription:', error)
+      // Rollback
+      if (prev) {
         set((state) => ({
-          subscriptions: [...state.subscriptions, { ...subscription, id: crypto.randomUUID() }],
-        })),
-      editSubscription: (id, updatedSubscription) =>
-        set((state) => ({
-          subscriptions: state.subscriptions.map((sub) => (sub.id === id ? { ...sub, ...updatedSubscription } : sub)),
-        })),
-      deleteSubscription: (id) =>
-        set((state) => ({
-          subscriptions: state.subscriptions.filter((sub) => sub.id !== id),
-        })),
-      restoreSubscription: (subscription, index) =>
-        set((state) => {
-          const subs = [...state.subscriptions]
-          if (index !== undefined && index >= 0 && index <= subs.length) {
-            subs.splice(index, 0, subscription)
-          } else {
-            subs.push(subscription)
-          }
-          return { subscriptions: subs }
-        }),
-      exportSubscriptions: () => JSON.stringify(get().subscriptions, null, 2),
-      importSubscriptions: (data) => {
-        try {
-          const report = validateImportData(data)
-          if (report.invalidCount > 0) {
-            throw new Error('Invalid subscription data format')
-          }
-          const subscriptions = report.rows.map((r) => r.subscription as Subscription)
-          set({ subscriptions, lastImportedAt: new Date().toISOString() })
-        } catch (error) {
-          console.error('Failed to import subscriptions:', error)
-          throw error
-        }
-      },
-      resetToDefault: () => set({ subscriptions: defaultSubscriptions }),
-      replaceSubscriptions: (subscriptions) => set({ subscriptions }),
-    }),
-    {
-      name: 'subscription-storage',
-      storage: createJSONStorage(() => customStorage),
-      partialize: (state) => ({ subscriptions: state.subscriptions, lastImportedAt: state.lastImportedAt }),
-      onRehydrateStorage: () => (state) => {
-        if (!state || !state.subscriptions?.length) {
-          useSubscriptionStore.setState({ subscriptions: defaultSubscriptions })
-        }
-      },
-    },
-  ),
-)
+          subscriptions: state.subscriptions.map((sub) => (sub.id === id ? prev : sub)),
+        }))
+      }
+    }
+  },
+
+  deleteSubscription: async (id) => {
+    const prev = get().subscriptions
+    // Optimistic delete
+    set((state) => ({ subscriptions: state.subscriptions.filter((sub) => sub.id !== id) }))
+
+    try {
+      const response = await fetch(`/api/subscriptions/${id}`, { method: 'DELETE' })
+      if (!response.ok) throw new Error('Failed to delete subscription')
+    } catch (error) {
+      console.error('Error deleting subscription:', error)
+      set({ subscriptions: prev })
+    }
+  },
+
+  restoreSubscription: async (subscription, index) => {
+    set((state) => {
+      const subs = [...state.subscriptions]
+      if (index !== undefined && index >= 0 && index <= subs.length) {
+        subs.splice(index, 0, subscription)
+      } else {
+        subs.push(subscription)
+      }
+      return { subscriptions: subs }
+    })
+
+    try {
+      await fetch('/api/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(subscription),
+      })
+    } catch (error) {
+      console.error('Error restoring subscription:', error)
+    }
+  },
+
+  exportSubscriptions: () => JSON.stringify(get().subscriptions, null, 2),
+
+  importSubscriptions: async (data) => {
+    const report = validateImportData(data)
+    if (report.invalidCount > 0) {
+      throw new Error('Invalid subscription data format')
+    }
+    const subscriptions = report.rows.map((r) => r.subscription as Subscription)
+
+    try {
+      const response = await fetch('/api/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'replace', subscriptions }),
+      })
+      if (!response.ok) throw new Error('Failed to import subscriptions')
+      const result = await response.json()
+      set({ subscriptions: result.subscriptions, lastImportedAt: new Date().toISOString() })
+    } catch (error) {
+      console.error('Failed to import subscriptions:', error)
+      throw error
+    }
+  },
+
+  replaceSubscriptions: async (subscriptions) => {
+    const prev = get().subscriptions
+    set({ subscriptions })
+
+    try {
+      const response = await fetch('/api/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'replace', subscriptions }),
+      })
+      if (!response.ok) throw new Error('Failed to replace subscriptions')
+    } catch (error) {
+      console.error('Error replacing subscriptions:', error)
+      set({ subscriptions: prev })
+    }
+  },
+
+  resetToDefault: async () => {
+    set({ subscriptions: defaultSubscriptions })
+    try {
+      await fetch('/api/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'replace', subscriptions: defaultSubscriptions }),
+      })
+    } catch (error) {
+      console.error('Error resetting subscriptions:', error)
+    }
+  },
+}))
 
 export default useSubscriptionStore
