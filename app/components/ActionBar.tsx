@@ -1,9 +1,9 @@
 import { Link } from '@remix-run/react'
-import { BarChart2, Download, SlidersHorizontal, Sparkles, Upload } from 'lucide-react'
+import { BarChart2, Bell, Download, SlidersHorizontal, Sparkles, Upload } from 'lucide-react'
 import type React from 'react'
+import { EmailImportDialog } from '~/components/EmailImportDialog'
 import { Button } from '~/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/components/ui/tooltip'
-import { EmailImportDialog } from '~/components/EmailImportDialog'
 
 interface ActionBarProps {
   subscriptionCount: number
@@ -11,6 +11,7 @@ interface ActionBarProps {
   onExport: () => void
   onImport: () => void
   onQuickSetup: () => void
+  onOpenNotificationSettings: () => void
   fileInputRef: React.RefObject<HTMLInputElement>
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void
 }
@@ -21,6 +22,7 @@ export function ActionBar({
   onExport,
   onImport,
   onQuickSetup,
+  onOpenNotificationSettings,
   fileInputRef,
   onFileChange,
 }: ActionBarProps) {
@@ -73,6 +75,10 @@ export function ActionBar({
           </Link>
         </Button>
         <EmailImportDialog />
+        <Button onClick={onOpenNotificationSettings} size="sm" variant="outline" className="rounded-none">
+          <Bell className="mr-1 h-3 w-3" />
+          Alerts
+        </Button>
         <Button asChild size="sm" variant="outline" className="rounded-none rounded-tr-md rounded-br-md">
           <Link to="/manage">
             <SlidersHorizontal className="mr-1 h-3 w-3" />
